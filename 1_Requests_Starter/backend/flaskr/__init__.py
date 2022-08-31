@@ -1,4 +1,7 @@
+from crypt import methods
+from distutils.log import error
 import os
+from urllib import response
 from flask import Flask, request, abort, jsonify
 from flask_sqlalchemy import SQLAlchemy  # , or_
 from flask_cors import CORS
@@ -38,22 +41,93 @@ def create_app(test_config=None):
     #         update the frontend to handle additional books in the styling and pagination
     #         Response body keys: 'success', 'books' and 'total_books'
     # TEST: When completed, the webpage will display books including title, author, and rating shown as stars
+    @app.route('/books', methods=['GET'])
+    def get_books():
+        page = request.args.get('page', 1, type=int)
+        try:
+            start = (page - 1) * BOOKS_PER_SHELF
+            end = start + BOOKS_PER_SHELF
+
+            books = Book.query.all()
+            formated_books = [book.format() for book in books]
+
+            return jsonify({
+                'success': True,
+                'books': formated_books[start:end],
+                'total_books': len(formated_books)
+            })
+        except:
+            return jsonify({
+                'error': error
+            })
 
     # @TODO: Write a route that will update a single book's rating.
     #         It should only be able to update the rating, not the entire representation
     #         and should follow API design principles regarding method and route.
     #         Response body keys: 'success'
     # TEST: When completed, you will be able to click on stars to update a book's rating and it will persist after refresh
+    @app.route('/books/<int:book_id>', methods=['PATCH'])
+    def change_rating(book_id):
+        rating = request.json.get('rating')
+
+        book = Book.query.filter(Book.id==book_id).one_or_none()
+        if book is None:
+            abort(400)
+            
+            return jsonify({
+                'error': error
+            })
+        else:
+            book.rating = rating
+            book.update()
+
+            return jsonify({
+                'success': True
+            })
 
     # @TODO: Write a route that will delete a single book.
     #        Response body keys: 'success', 'deleted'(id of deleted book), 'books' and 'total_books'
     #        Response body keys: 'success', 'books' and 'total_books'
 
     # TEST: When completed, you will be able to delete a single book by clicking on the trashcan.
+    @app.route('/books/<int:book_id>', methods=['DELETE'])
+    def delete_book(book_id):
+        book = Book.query.filter(Book.id==book_id).one_or_none()
+        if book is None:
+            abort(400)
+
+            return jsonify({
+                'error': error
+            })
+
+        else:
+            book.delete()
+
+            return jsonify({
+                'success': True
+            })
 
     # @TODO: Write a route that create a new book.
     #        Response body keys: 'success', 'created'(id of created book), 'books' and 'total_books'
     # TEST: When completed, you will be able to a new book using the form. Try doing so from the last page of books.
     #       Your new book should show up immediately after you submit it at the end of the page.
+    @app.route('/books', methods=['POST'])
+    def new_book():
+
+        newbook = request.json
+        print (f'{newbook}')
+        book = Book(newbook['title'], newbook['author'], newbook['rating'])
+        try:
+            book.insert()
+        except:
+            abort(500)
+
+            return jsonify({
+                'error': error
+            })
+        finally:
+            return jsonify({
+                'success': True
+            })
 
     return app
